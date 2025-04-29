@@ -1,0 +1,196 @@
+openapi: "3.0.3"
+info:
+  title: "Qdrant DBaaS API"
+  description: "API for managing Qdrant clusters via DBaaS"
+  version: "1.0"
+
+security:
+  - LambdaAuthorizer: []
+
+paths:
+  /v1/qdrant/cluster:
+    post:
+      operationId: createCluster
+      summary: "Create a new Qdrant cluster"
+      security:
+        - LambdaAuthorizer: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestCreateCluster"
+      responses:
+        "201":
+          description: "Cluster created successfully"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseClusterInfo"
+        default:
+          description: "Error response"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseMessage"
+      x-amazon-apigateway-integration:
+        type: aws_proxy
+        httpMethod: POST
+        uri: "arn:aws:apigateway:${region}:lambda:path/2015-03-31/functions/${api_cluster}/invocations"
+
+    options:
+      summary: "CORS support"
+      responses:
+        "200":
+          description: "Default CORS response"
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+                example: "*"
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+                example: "POST,OPTIONS"
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+                example: "Content-Type,X-Amz-Date,Authorization,X-Api-Key"
+          content: {}
+      x-amazon-apigateway-integration:
+        type: mock
+        requestTemplates:
+          application/json: "{\"statusCode\": 200}"
+        responses:
+          default:
+            statusCode: "200"
+
+  /v1/qdrant/access:
+    get:
+      operationId: getAccessToken
+      summary: "Get access token for the cluster"
+      security:
+        - LambdaAuthorizer: []
+      parameters:
+        - name: cluster_id
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: "Access token generated"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseAccessToken"
+        default:
+          description: "Error response"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResponseMessage"
+      x-amazon-apigateway-integration:
+        type: aws_proxy
+        httpMethod: POST
+        uri: "arn:aws:apigateway:${region}:lambda:path/2015-03-31/functions/${api_cluster_token}/invocations"
+
+    options:
+      summary: "CORS support"
+      responses:
+        "200":
+          description: "Default CORS response"
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+                example: "*"
+            Access-Control-Allow-Methods:
+              schema:
+                type: string
+                example: "GET,OPTIONS"
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+                example: "Content-Type,X-Amz-Date,Authorization,X-Api-Key"
+          content: {}
+      x-amazon-apigateway-integration:
+        type: mock
+        requestTemplates:
+          application/json: "{\"statusCode\": 200}"
+        responses:
+          default:
+            statusCode: "200"
+
+components:
+  securitySchemes:
+    LambdaAuthorizer:
+      type: apiKey
+      name: x-api-auth
+      in: header
+      x-amazon-apigateway-authtype: custom
+      x-amazon-apigateway-authorizer:
+        type: request
+        identitySource: method.request.header.x-api-auth
+        authorizerUri: arn:aws:apigateway:${region}:lambda:path/2015-03-31/functions/${authorizer}/invocations
+        authorizerResultTtlInSeconds: 300
+
+  schemas:
+    RequestCreateCluster:
+      type: object
+      required:
+        - provider
+        - name
+        - node_count
+        - node_type
+        - k8s_version
+      properties:
+        provider:
+          type: string
+        name:
+          type: string
+        node_count:
+          type: integer
+          example: 3
+        node_type:
+          type: string
+          example: "t3.medium"
+        k8s_version:
+          type: string
+          example: "1.27"
+
+    ResponseClusterInfo:
+      type: object
+      required:
+        - id
+        - name
+        - region
+        - status
+        - endpoint
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        region:
+          type: string
+        status:
+          type: string
+        endpoint:
+          type: string
+
+    ResponseAccessToken:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+
+    ResponseMessage:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
